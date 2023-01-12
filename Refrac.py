@@ -8,6 +8,12 @@ from sklearn.preprocessing import MinMaxScaler
 from tkinter import ttk
 from matplotlib import gridspec
 from itertools import cycle
+
+from dfextractions import df_extractions
+from dfsamples import df_samples
+from dfhplc import df_hplc_results
+from dfgc import df_gc
+
 matplotlib.use('TkAgg')
 
 
@@ -16,48 +22,24 @@ class Dataset:
     cat_columns = {}
     num_columns = {}
 
+    @staticmethod
+    def set_df(name, df):
+        Dataset.num_columns[name] = list(df.select_dtypes(include=[np.number]).columns.values)
+        Dataset.cat_columns[name] = list(df.select_dtypes(exclude=[np.number]).columns.values)
+        Dataset.dataframes[name] = df
+
     def __init__(self):
-        df_samples_raw = pd.read_excel("Entwurf.xlsx", "Analytikproben", engine="openpyxl")
-        df_samples_raw["Probenmasse [g]"] = pd.to_numeric(df_samples_raw["Probenmasse [g]"], errors='coerce')
-        df_samples_raw["Tara [g]"] = pd.to_numeric(df_samples_raw["Tara [g]"], errors='coerce')
+        df_extractions_raw = df_extractions
+        self.set_df('Extraktionen', df_extractions_raw)
 
-        Dataset.num_columns['Analytikproben'] = list(df_samples_raw.select_dtypes(include=[np.number]).columns.values)
-        Dataset.cat_columns['Analytikproben'] = list(df_samples_raw.select_dtypes(exclude=[np.number]).columns.values)
-        Dataset.dataframes['Analytikproben'] = df_samples_raw
-        print(df_samples_raw.info())
+        df_samples_raw = df_samples
+        self.set_df('Analytikproben', df_samples_raw)
 
-        df_gc_results_raw = pd.read_excel("Entwurf.xlsx", "GC-Messungen", engine="openpyxl")
-        df_gc_standards_raw = pd.read_excel("Entwurf.xlsx", "GC-Standards", engine="openpyxl")
-        df_gc_standards_raw["cal HHx m corr"] = df_gc_standards_raw["cal HHx m"] * df_gc_standards_raw[
-            "HHx Korrekturfaktor"]
-        df_gc_results_raw = df_gc_results_raw.merge(df_gc_standards_raw, left_on="GC-IS Nr.", right_on="GC-IS Nr.")
-        df_gc_results_raw["m HB"] = df_gc_results_raw["A HB"] / df_gc_results_raw["A IS"] * df_gc_results_raw[
-            "cal HB m"]
-        df_gc_results_raw["m HHx"] = df_gc_results_raw["A HHx"] / df_gc_results_raw["A IS"] * df_gc_results_raw[
-            "cal HHx m corr"]
-        df_gc_results_raw = df_gc_results_raw.merge(df_samples_raw[['D5-AP Nr.', 'Inhalt', 'Versuch', 'Probenmasse [g]']],
-                                                    left_on='D5-AP Nr.', right_on='D5-AP Nr.')
-        df_gc_results_raw['Reinheit [%]'] = df_gc_results_raw["m HHx"] + df_gc_results_raw["m HB"] / df_gc_results_raw['Probenmasse [g]']
-        df_gc_results_raw['n HB [mol]'] = df_gc_results_raw["m HB"]/86.092
-        df_gc_results_raw['n HHx [mol]'] = df_gc_results_raw["m HHx"]/114.144
-        df_gc_results_raw['x HHx [%]'] = df_gc_results_raw['n HHx [mol]'] / (df_gc_results_raw["n HHx [mol]"] + df_gc_results_raw["n HB [mol]"])
-        df_gc_results_raw['x HB [%]'] = df_gc_results_raw['n HB [mol]'] / (df_gc_results_raw["n HHx [mol]"] + df_gc_results_raw["n HB [mol]"])
-        df_gc_results_raw = df_gc_results_raw.drop(['GC-IS Nr.', 'Probenmasse [g]',
-                                                    'HHx Korrekturfaktor', 'cal HHx m'], axis=1)
+        df_gc_results_raw = df_gc
+        self.set_df('GC Ergebnisse', df_gc_results_raw)
 
-        Dataset.num_columns['GC Ergebnisse'] = list(df_gc_results_raw.select_dtypes(include=[np.number]).columns.values)
-        Dataset.cat_columns['GC Ergebnisse'] = list(df_gc_results_raw.select_dtypes(exclude=[np.number]).columns.values)
-        Dataset.dataframes['GC Ergebnisse'] = df_gc_results_raw
-        print(df_gc_results_raw.info())
-
-        df_hplc_results_raw = pd.read_excel("Entwurf.xlsx", "HPLC-Messungen", engine="openpyxl")
-        df_hplc_results_raw = df_hplc_results_raw.merge(df_samples_raw[['D5-AP Nr.', 'Inhalt', 'Versuch']],
-                                                        left_on='D5-AP Nr.', right_on='D5-AP Nr.')
-
-        Dataset.num_columns['HPLC Ergebnisse'] = list(df_hplc_results_raw.select_dtypes(include=[np.number]).columns.values)
-        Dataset.cat_columns['HPLC Ergebnisse'] = list(df_hplc_results_raw.select_dtypes(exclude=[np.number]).columns.values)
-        Dataset.dataframes['HPLC Ergebnisse'] = df_hplc_results_raw
-        print(df_hplc_results_raw.info())
+        df_hplc_results_raw = df_hplc_results
+        self.set_df('HPLC Ergebnisse', df_hplc_results_raw)
 
     @staticmethod
     def get_columns(*args, **kwargs):
@@ -303,7 +285,7 @@ class Scatter3DWindow(tk.Frame):
                 if c is not None:
                     c = self.c_scaler.fit_transform(c.to_numpy().reshape(-1,1))
                 if self.s_vals:
-                    self.ax.scatter(xs=x, ys=y, zs=z, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1,1)), marker=marker, label=title)
+                    self.ax.scatter(xs=x, ys=y, zs=z, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1, 1)), marker=marker, label=title)
                 else:
                     self.ax.scatter(xs=x, ys=y, zs=z, c=c, marker=marker, label=title)
             self.ax.legend()
@@ -417,7 +399,7 @@ class Scatter2DWindow(tk.Frame):
                 if ser:
                     title = ser.title
                 if self.s_vals:
-                    self.ax.scatter(x=x, y=y, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1,1)), marker=marker, label=title)
+                    self.ax.scatter(x=x, y=y, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1, 1)), marker=marker, label=title)
                 else:
                     self.ax.scatter(x=x, y=y, c=c, marker=marker, label=title)
             self.ax.legend()
