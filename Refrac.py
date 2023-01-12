@@ -292,8 +292,8 @@ class Scatter3DWindow(tk.Frame):
             self.ax.set_ylabel(self.y_vals)
             self.ax.set_zlabel(self.z_vals)
             markers = ['o', 'v', '^', '<', '>', '1', '2', '3', '4', '*', 'P', 'p', 's', 'X', 'D']
-            x, y, z, c, s = self.__get_columns()
-            if s is not None:
+            if self.s_vals:
+                s = Dataset.get_columns(self.s_vals)[0]
                 self.scaler.fit(s.to_numpy().reshape(-1,1))
             for ser, marker in zip(self.__get_filters(), cycle(markers)):
                 x, y, z, c, s = self.__get_columns(ser)
@@ -408,13 +408,16 @@ class Scatter2DWindow(tk.Frame):
             self.ax.set_xlabel(self.x_vals)
             self.ax.set_ylabel(self.y_vals)
             markers = ['o', 'v', '^', '<', '>', '1', '2', '3', '4', '*', 'P', 'p', 's', 'X', 'D']
+            if self.s_vals:
+                s = Dataset.get_columns(self.s_vals)[0]
+                self.scaler.fit(s.to_numpy().reshape(-1,1))
             for ser, marker in zip(self.__get_filters(), cycle(markers)):
                 x, y, c, s = self.__get_columns(ser)
                 title = "All"
                 if ser:
                     title = ser.title
                 if self.s_vals:
-                    self.ax.scatter(x=x, y=y, c=c, s=self.scaler.fit_transform(s.to_numpy().reshape(-1,1)), marker=marker, label=title)
+                    self.ax.scatter(x=x, y=y, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1,1)), marker=marker, label=title)
                 else:
                     self.ax.scatter(x=x, y=y, c=c, marker=marker, label=title)
             self.ax.legend()
