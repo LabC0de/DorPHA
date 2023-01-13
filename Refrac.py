@@ -1,18 +1,18 @@
 import math
-import matplotlib
-import pandas as pd
-import numpy as np
 import tkinter as tk
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from tkinter import ttk
-from matplotlib import gridspec
 from itertools import cycle
+from tkinter import ttk
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import gridspec
+from sklearn.preprocessing import MinMaxScaler
 
 from dfextractions import df_extractions
-from dfsamples import df_samples
-from dfhplc import df_hplc_results
 from dfgc import df_gc
+from dfhplc import df_hplc_results
+from dfsamples import df_samples
 
 matplotlib.use('TkAgg')
 
