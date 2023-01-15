@@ -6,6 +6,7 @@ from tkinter import ttk
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib import gridspec
 from sklearn.preprocessing import MinMaxScaler
 
@@ -103,7 +104,9 @@ class Dataset:
             for col, values in info.items():
                 tmp = tmp[~tmp[col].isin(values)]
             ret = tmp[['Versuch', 'Inhalt']].merge(ret, left_on=['Versuch', 'Inhalt'], right_on=['Versuch', 'Inhalt'])
-        ret = [ret[arg] if arg is not None else None for arg in args]
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 400):
+            print(ret)
+        ret = [ret[arg] if arg is not None else None for arg in list(args) + ['Versuch', 'Inhalt']]
         return ret
 
     @staticmethod
@@ -273,21 +276,23 @@ class Scatter3DWindow(tk.Frame):
             self.ax.set_xlabel(self.x_vals)
             self.ax.set_ylabel(self.y_vals)
             self.ax.set_zlabel(self.z_vals)
+            self.ax._custom_label_data = {}
             markers = ['o', 'v', '^', '<', '>', '1', '2', '3', '4', '*', 'P', 'p', 's', 'X', 'D']
             if self.s_vals:
                 s = Dataset.get_columns(self.s_vals)[0]
                 self.scaler.fit(s.to_numpy().reshape(-1,1))
             for ser, marker in zip(self.__get_filters(), cycle(markers)):
-                x, y, z, c, s = self.__get_columns(ser)
+                x, y, z, c, s, v, i = self.__get_columns(ser)
                 title = "All"
                 if ser:
                     title = ser.title
                 if c is not None:
                     c = self.c_scaler.fit_transform(c.to_numpy().reshape(-1,1))
                 if self.s_vals:
-                    self.ax.scatter(xs=x, ys=y, zs=z, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1, 1)), marker=marker, label=title)
+                    col = self.ax.scatter(xs=x, ys=y, zs=z, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1, 1)), marker=marker, label=title)
                 else:
-                    self.ax.scatter(xs=x, ys=y, zs=z, c=c, marker=marker, label=title)
+                    col = self.ax.scatter(xs=x, ys=y, zs=z, c=c, marker=marker, label=title)
+                self.ax._custom_label_data[col] = (v, i)
             self.ax.legend()
             self.ax.set_title(self.title)
             plt.show(block=False)
@@ -389,19 +394,21 @@ class Scatter2DWindow(tk.Frame):
             self.ax.cla()
             self.ax.set_xlabel(self.x_vals)
             self.ax.set_ylabel(self.y_vals)
+            self.ax._custom_label_data = {}
             markers = ['o', 'v', '^', '<', '>', '1', '2', '3', '4', '*', 'P', 'p', 's', 'X', 'D']
             if self.s_vals:
                 s = Dataset.get_columns(self.s_vals)[0]
                 self.scaler.fit(s.to_numpy().reshape(-1,1))
             for ser, marker in zip(self.__get_filters(), cycle(markers)):
-                x, y, c, s = self.__get_columns(ser)
+                x, y, c, s, v, i = self.__get_columns(ser)
                 title = "All"
                 if ser:
                     title = ser.title
                 if self.s_vals:
-                    self.ax.scatter(x=x, y=y, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1, 1)), marker=marker, label=title)
+                    col = self.ax.scatter(x=x, y=y, c=c, s=self.scaler.transform(s.to_numpy().reshape(-1, 1)), marker=marker, label=title)
                 else:
-                    self.ax.scatter(x=x, y=y, c=c, marker=marker, label=title)
+                    col = self.ax.scatter(x=x, y=y, c=c, marker=marker, label=title)
+                self.ax._custom_label_data[col] = (v, i)
             self.ax.legend()
             self.ax.set_title(self.title)
             plt.show(block=False)
@@ -488,6 +495,17 @@ class BarPlotWindow:
 class Filtertool:
     figures = []
 
+    def __hover(self, evnt):
+        if evnt.inaxes is None:
+            return
+        text = ""
+        for idx, col in enumerate(evnt.inaxes.collections):
+            cont, ind = col.contains(evnt)
+            if cont:
+                tup = evnt.inaxes._custom_label_data[col]
+                text += str(pd.concat([tup[0], tup[1]], axis=1).iloc[ind['ind']])
+        print(text)
+
     def __cb(self):
         pass
 
@@ -527,6 +545,8 @@ class Filtertool:
 
     def __init__(self, fig):
         self.figure = fig
+        fig.canvas.mpl_connect("motion_notify_event", self.__hover)
+
         self.exp = tk.Toplevel(self.figure.canvas.get_tk_widget())
         self.exp.title("Dora the Explorer")
         self.exp.geometry("300x200")
