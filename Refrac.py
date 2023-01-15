@@ -504,6 +504,8 @@ class Filtertool:
             if cont:
                 tup = evnt.inaxes._custom_label_data[col]
                 text += str(pd.concat([tup[0], tup[1]], axis=1).iloc[ind['ind']])
+        if text == "":
+            return
         print(text)
 
     def __cb(self):
