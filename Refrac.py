@@ -11,7 +11,7 @@ from matplotlib import gridspec
 from sklearn.preprocessing import MinMaxScaler
 
 from dfextractions import df_extractions
-from dfgc import df_gc
+from dfgc import df_gc, df_gc_stat
 from dfhplc import df_hplc_results
 from dfsamples import df_samples
 
@@ -38,6 +38,9 @@ class Dataset:
 
         df_gc_results_raw = df_gc
         self.set_df('GC Ergebnisse', df_gc_results_raw)
+
+        df_gc_results = df_gc_stat
+        self.set_df('GC Ergebnisse (Stat)', df_gc_results)
 
         df_hplc_results_raw = df_hplc_results
         self.set_df('HPLC Ergebnisse', df_hplc_results_raw)
