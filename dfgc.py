@@ -8,13 +8,16 @@ df_gc_standards["cal HHx m corr"] = df_gc_standards["cal HHx m"] * df_gc_standar
 df_gc = df_gc.merge(df_gc_standards, left_on="GC-IS Nr.", right_on="GC-IS Nr.")
 df_gc["m HB"] = df_gc["A HB"] / df_gc["A IS"] * df_gc["cal HB m"]
 df_gc["m HHx"] = df_gc["A HHx"] / df_gc["A IS"] * df_gc["cal HHx m corr"]
-df_gc = df_gc.merge(df_samples[['D5-AP Nr.', 'Inhalt', 'Versuch', 'Probenmasse [g]']], left_on='D5-AP Nr.', right_on='D5-AP Nr.')
-df_gc['Reinheit [%]'] = df_gc["m HHx"] + df_gc["m HB"] / df_gc['Probenmasse [g]']
+df_gc = df_gc.merge(df_samples[['D5-AP Nr.', 'Inhalt', 'Versuch', 'Probenmasse [g]', 'Ausreißer Probe']],
+                    left_on='D5-AP Nr.', right_on='D5-AP Nr.')
+df_gc['Reinheit [%]'] = (df_gc["m HHx"] + df_gc["m HB"]) / df_gc['Probenmasse [g]']
 df_gc['n HB [mol]'] = df_gc["m HB"]/86.092
 df_gc['n HHx [mol]'] = df_gc["m HHx"]/114.144
 df_gc['x HHx [%]'] = df_gc['n HHx [mol]'] / (df_gc["n HHx [mol]"] + df_gc["n HB [mol]"])
 df_gc['x HB [%]'] = df_gc['n HB [mol]'] / (df_gc["n HHx [mol]"] + df_gc["n HB [mol]"])
 df_gc = df_gc.drop(['GC-IS Nr.', 'Probenmasse [g]', 'HHx Korrekturfaktor', 'cal HHx m'], axis=1)
+
+print(df_gc.info())
 
 df_gc_stat = df_gc[(df_gc['Ausreißer Messung'] == False) & (df_gc['Ausreißer Probe'] == False)].drop(
     ['Ausreißer Messung', 'Interner Standard', 'A HB', 'A IS','A HHx', 'RT HB [min]', 'RT IS [min]', 'RT HHx [min]',
@@ -32,3 +35,6 @@ if __name__ == "__main__":
     df_source_mat = df_gc_stat[df_gc_stat["Inhalt"] == "Trockene Zellen"].drop(columns=['Inhalt'])
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 600):
         print(df_source_mat)
+
+
+df_gc = df_gc.drop(columns=['Ausreißer Probe'])
