@@ -550,7 +550,7 @@ class Filtertool:
 
     def __init__(self, fig):
         self.figure = fig
-        fig.canvas.mpl_connect("motion_notify_event", self.__hover)
+        # fig.canvas.mpl_connect("motion_notify_event", self.__hover)
 
         self.exp = tk.Toplevel(self.figure.canvas.get_tk_widget())
         self.exp.title("Dora the Explorer")
