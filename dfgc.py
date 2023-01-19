@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from dfsamples import df_samples
+from dfextractions import df_extractions
 
 df_gc = pd.read_excel("Entwurf.xlsx", "GC-Messungen", engine="openpyxl")
 df_gc_standards = pd.read_excel("Entwurf.xlsx", "GC-Standards", engine="openpyxl")
@@ -16,8 +17,6 @@ df_gc['n HHx [mol]'] = df_gc["m HHx"]/114.144
 df_gc['x HHx [%]'] = df_gc['n HHx [mol]'] / (df_gc["n HHx [mol]"] + df_gc["n HB [mol]"])
 df_gc['x HB [%]'] = df_gc['n HB [mol]'] / (df_gc["n HHx [mol]"] + df_gc["n HB [mol]"])
 df_gc = df_gc.drop(['GC-IS Nr.', 'Probenmasse [g]', 'HHx Korrekturfaktor', 'cal HHx m'], axis=1)
-
-print(df_gc.info())
 
 df_gc_stat = df_gc[(df_gc['Ausreißer Messung'] == False) & (df_gc['Ausreißer Probe'] == False)].drop(
     ['Ausreißer Messung', 'Interner Standard', 'A HB', 'A IS','A HHx', 'RT HB [min]', 'RT IS [min]', 'RT HHx [min]',
@@ -35,6 +34,14 @@ if __name__ == "__main__":
     df_source_mat = df_gc_stat[df_gc_stat["Inhalt"] == "Trockene Zellen"].drop(columns=['Inhalt'])
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 600):
         print(df_source_mat)
+
+    df_extr = df_extractions[['Versuch', 'Inhalt', 'Urversuch',
+                              'Vorextraktionen [n]', 'Lösemittel',
+                              'Temperatur [°C]', 'Extraktionskonzentration [g/ml]', 'Dauer [min]']]
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 600):
+        print(df_extr.sort_values('Vorextraktionen [n]'))
+
+
 
 
 df_gc = df_gc.drop(columns=['Ausreißer Probe'])

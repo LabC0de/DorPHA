@@ -1,0 +1,27 @@
+body {
+    font-family: sans-serif;
+}
+
+.collapsible {
+  background-color: #eee;
+  color: #444;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+.active, .collapsible:hover {
+  background-color: #ccc;
+}
+
+.content {
+  display: inline-flex;
+  flex-direction: row;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  width: 99vw;
+}
