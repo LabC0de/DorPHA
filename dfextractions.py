@@ -6,7 +6,7 @@ df_extractions["Extraktionskonzentration [g/ml]"] = df_extractions["Ausgangsmass
 df_extractions["Fällungskonzentration [g/ml]"] = df_extractions["m Extraktionslösung [g]"]/df_extractions["v Fällungsmittel [ml]"]
 
 df_extractions = df_prod.merge(df_extractions, left_on='Versuch', right_on='Versuchskürzel')
-df_extractions.rename(columns={'Produktfraktion': 'Inhalt'}, inplace=True)
+df_extractions.rename(columns={'Produktfraktion': 'Inhalt', "Vorextraktionen [n] ": "Vorextraktionen [n]"}, inplace=True)
 
 
 if __name__ == "__main__":
