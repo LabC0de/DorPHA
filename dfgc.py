@@ -159,16 +159,28 @@ if __name__ == "__main__":
     ])
 
 
+    def get_base_trails(ser):
+        acc = []
+        for trail in ser.unique():
+            if trail is np.NaN:
+                return acc
+            acc += trail.strip("[]").split(',')
+        return acc
+
     def get_lines(df, trail):
         with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 800):
-            print(trail)
-            # print(df)
             acc = df[df['Versuch'] == trail['points'][0]['hovertext']]
             tmp = acc
             while not tmp.empty:
-                tmp = df[df['Versuch'].isin(tmp['Ausgansversuch'])]
-                acc = pd.concat([acc, tmp], ignore_index=True)
-            print(acc)
+                tmp = df[df['Versuch'].isin(get_base_trails(tmp['Ausgansversuch']))]
+                acc = pd.concat([acc, tmp])
+            tmp = df[df['Ausgansversuch'].str.contains(trail['points'][0]['hovertext'], na=False)]
+            while not tmp.empty:
+                acc = pd.concat([acc, tmp])
+                pattern = "|".join(get_base_trails(tmp['Versuch']))
+                dbg = df['Ausgansversuch'].str.contains(pattern, regex=True, na=False)
+                tmp = df[dbg]
+            return acc
 
 
     @app.callback(
@@ -182,8 +194,11 @@ if __name__ == "__main__":
         Input('conc-slider', 'value'),
         Input('dur-slider', 'value'),
         Input('HHx-plot', 'hoverData'),
+        Input('HHx-plot', 'clickData'),
     )
-    def callback(solvents, reciprocents, source, temp_range, concentration_range, duration_range, hhx_hover):
+    def callback(solvents, reciprocents, source,
+                 temp_range, concentration_range, duration_range,
+                 hhx_hover, hhx_click):
         if isinstance(solvents, str):
             solvents = [solvents]
         df_tmp = df_final[df_final['Lösemittel'].isin(solvents)]
@@ -198,37 +213,31 @@ if __name__ == "__main__":
         df_tmp = df_tmp[df_tmp['Extraktionsdauer [min]'].between(*duration_range)]
         df_tmp = pd.concat([df_source_mat, df_tmp], ignore_index=True)
 
+        df_hl = None
         if hhx_hover is not None:
-            get_lines(df_tmp[['Versuch', 'Inhalt', 'Ausgansversuch', 'Extraktionen [n]',
-                              'Reinheit [%] (mean)', 'x HHx [%] (mean)', 'Mw (mean)']], hhx_hover)
+            df_hl = get_lines(df_tmp, hhx_hover)
+            if hhx_hover == hhx_click:
+                df_tmp = df_hl
+                df_hl = None
 
-        fig1 = px.scatter(df_tmp,
-                          x="Extraktionen [n]",
-                          y='x HHx [%] (mean)',
-                          error_y='x HHx [%] (std)',
-                          color="Inhalt",
-                          symbol='Ausgangsmaterial',
-                          hover_name="Versuch",
+        fig1 = px.scatter(df_tmp, x="Extraktionen [n]", y='x HHx [%] (mean)', error_y='x HHx [%] (std)', color="Inhalt",
+                          symbol='Ausgangsmaterial', hover_name="Versuch",
                           hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
                                       'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
-        fig2 = px.scatter(df_tmp,
-                          x="Extraktionen [n]",
-                          y='Reinheit [%] (mean)',
-                          error_y='Reinheit [%] (std)',
-                          color="Inhalt",
-                          symbol='Ausgangsmaterial',
-                          hover_name="Versuch",
+        fig2 = px.scatter(df_tmp, x="Extraktionen [n]", y='Reinheit [%] (mean)', error_y='Reinheit [%] (std)',
+                          color="Inhalt", symbol='Ausgangsmaterial', hover_name="Versuch",
                           hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
                                       'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
-        fig3 = px.scatter(df_tmp,
-                          x="Extraktionen [n]",
-                          y='Mw (mean)',
-                          error_y='Mw (std)',
-                          color="Inhalt",
-                          symbol='Ausgangsmaterial',
-                          hover_name="Versuch",
+        fig3 = px.scatter(df_tmp, x="Extraktionen [n]", y='Mw (mean)', error_y='Mw (std)', color="Inhalt",
+                          symbol='Ausgangsmaterial', hover_name="Versuch",
                           hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
                                       'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
+
+        if df_hl is not None:
+            fig1.add_scatter(x=df_hl['Extraktionen [n]'], y=df_hl['x HHx [%] (mean)'], mode='markers', showlegend=False,
+                             hoverinfo='skip',  marker=dict(color='rgba(0,0,0,0)', size=15,  line=dict(color='Black', width=1)))
+            fig2.add_scatter(x=df_hl['Extraktionen [n]'], y=df_hl['Reinheit [%] (mean)'], mode='markers', showlegend=False,
+                             hoverinfo='skip',  marker=dict(color='rgba(0,0,0,0)', size=15,  line=dict(color='Black', width=1)))
         return fig1, fig2, fig3
 
     app.run_server(debug=True)
