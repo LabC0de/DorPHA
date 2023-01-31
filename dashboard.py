@@ -1,4 +1,5 @@
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html, dcc, Input, Output, State
+from dash.exceptions import PreventUpdate
 import plotly.express as px
 import pandas as pd
 import numpy as np
@@ -110,6 +111,8 @@ fig = px.scatter_3d(df_extractions,
                     z='Masse [g]', color='Lösemittel')
 
 app.layout = html.Div(children=[
+    html.Button("3D Scatter Plot", id="3DScatterCollapse", className="collapsible"),
+    html.Div(children=[
     html.Div(children=[
         dcc.Graph(figure=fig, id='indicator-graphic',
                   style={"height": "100%", "width": "100%"}),
@@ -139,7 +142,25 @@ app.layout = html.Div(children=[
         dcc.Dropdown(Dataset.get_numerical_columns() + Dataset.get_categorical_columns(), multi=True, id='interest-column'),
         html.Br()
     ], style={'padding': 1, 'flex': 1, "width": "33vw", "border": "1px solid black"}),
-], style={'display': 'inline-flex', 'flex-direction': 'row', "width": "99vw"})
+], id="3DScatterContent", className="content", style={})
+    ]
+)
+
+
+@app.callback(
+    Output(component_id='3DScatterContent', component_property='style'),
+    State('3DScatterContent', 'style'),
+    Input('3DScatterCollapse', 'n_clicks')
+)
+def collapse3dscatter(style, n_clicks):
+    print(style, n_clicks)
+    if n_clicks is None:
+        raise PreventUpdate
+    if n_clicks % 2 == 0:
+        style.pop("max-height", None)
+    else:
+        style["max-height"] = 0
+    return style
 
 
 @app.callback(

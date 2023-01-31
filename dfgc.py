@@ -1,6 +1,11 @@
 import pandas as pd
 import numpy as np
 from dfsamples import df_samples
+from dfextractions import df_extractions
+from dfhplc import df_hplc_stat
+from dash import Dash, html, dcc, Input, Output
+from random import uniform
+import plotly.express as px
 
 df_gc = pd.read_excel("Entwurf.xlsx", "GC-Messungen", engine="openpyxl")
 df_gc_standards = pd.read_excel("Entwurf.xlsx", "GC-Standards", engine="openpyxl")
@@ -17,8 +22,6 @@ df_gc['x HHx [%]'] = df_gc['n HHx [mol]'] / (df_gc["n HHx [mol]"] + df_gc["n HB 
 df_gc['x HB [%]'] = df_gc['n HB [mol]'] / (df_gc["n HHx [mol]"] + df_gc["n HB [mol]"])
 df_gc = df_gc.drop(['GC-IS Nr.', 'Probenmasse [g]', 'HHx Korrekturfaktor', 'cal HHx m'], axis=1)
 
-print(df_gc.info())
-
 df_gc_stat = df_gc[(df_gc['Ausreißer Messung'] == False) & (df_gc['Ausreißer Probe'] == False)].drop(
     ['Ausreißer Messung', 'Interner Standard', 'A HB', 'A IS','A HHx', 'RT HB [min]', 'RT IS [min]', 'RT HHx [min]',
     'cal HB m', 'cal HHx m corr'], axis=1)
@@ -29,12 +32,215 @@ df_gc_stat.columns = [f"{tup[0]} ({tup[1]})" for tup in df_gc_stat.columns]
 df_gc_stat = df_gc_stat.reset_index()
 
 if __name__ == "__main__":
-    print(df_gc.info())
-    print(df_gc_stat.info())
-    print(df_gc_stat.head())
-    df_source_mat = df_gc_stat[df_gc_stat["Inhalt"] == "Trockene Zellen"].drop(columns=['Inhalt'])
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 600):
-        print(df_source_mat)
+    df_source_mat = df_gc_stat[df_gc_stat["Inhalt"] == "Trockene Zellen"]
+    df_source_mat = df_source_mat.merge(df_hplc_stat, left_on=["Versuch", "Inhalt"], right_on=["Versuch", "Inhalt"], how="outer")
+    df_source_mat = df_source_mat[df_source_mat['Inhalt'] == "Trockene Zellen"]
+    df_source_mat = df_source_mat.assign(Ausgangsmaterial=df_source_mat['Versuch'])
+    df_source_mat = df_source_mat.assign(Extraktionen=0)
+    df_source_mat = df_source_mat.assign(Lösemittel="Keins")
+    df_source_mat = df_source_mat.assign(Extraktionstemperatur=np.NaN)
+    df_source_mat = df_source_mat.assign(Extraktionskonzentration=0)
+    df_source_mat = df_source_mat.assign(Extraktionsdauer=np.NaN)
+    df_source_mat = df_source_mat.assign(Fällungsmittel="Keins")
+    df_source_mat.rename({
+        "Extraktionen": "Extraktionen [n]",
+        "Extraktionstemperatur": "Extraktionstemperatur [°C]",
+        "Extraktionskonzentration": "Extraktionskonzentration [g/ml]",
+        "Extraktionsdauer": "Extraktionsdauer [min]"
+    }, inplace=True, axis=1)
+    df_source_mat['Extraktionen [n]'] = df_source_mat['Extraktionen [n]'].apply(lambda x: x + uniform(-0.3, 0.3))
+    df_extr = df_extractions[['Versuch', 'Inhalt', 'Urversuch',
+                              'Vorextraktionen [n]', 'Lösemittel',  'Ausgansversuch',
+                              'Temperatur [°C]', 'Extraktionskonzentration [g/ml]', 'Dauer [min]', 'Fällungsmittel']]
+    df_extr = df_extr.merge(df_gc_stat, left_on=['Versuch', 'Inhalt'], right_on=['Versuch', 'Inhalt'])
+    df_extr['Vorextraktionen [n]'] += 1
+    df_extr.rename({
+        "Temperatur [°C]": "Extraktionstemperatur [°C]",
+        "Dauer [min]": "Extraktionsdauer [min]",
+        "Vorextraktionen [n]": "Extraktionen [n]",
+        "Urversuch": "Ausgangsmaterial"
+    }, inplace=True, axis=1)
+    df_extr = df_extr.merge(df_hplc_stat, left_on=["Versuch", "Inhalt"], right_on=["Versuch", "Inhalt"], how="outer")
+    df_extr = df_extr[df_extr['Inhalt'] != "Fällungsüberstand"]
+    df_final = pd.concat([df_source_mat, df_extr], ignore_index=True)
+    df_final = df_final[df_final['Reinheit [%] (std)'] < 0.1]
+    df_final = df_final[df_final['x HHx [%] (std)'] < 0.04]
+
+    # jitter
+    df_final['Extraktionen [n]'] = df_final['Extraktionen [n]'].apply(lambda x: x + uniform(-0.3, 0.3))
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 800):
+        # print(df_final)
+        pass
+    fig1 = px.scatter(df_final,
+                      x="Extraktionen [n]",
+                      y='x HHx [%] (mean)',
+                      error_y='x HHx [%] (std)',
+                      color="Inhalt",
+                      symbol='Ausgangsmaterial',
+                      hover_name="Versuch",
+                      hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
+                                    'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
+    fig2 = px.scatter(df_final,
+                      x="Extraktionen [n]",
+                      y='Reinheit [%] (mean)',
+                      error_y='Reinheit [%] (std)',
+                      color="Inhalt",
+                      symbol='Ausgangsmaterial',
+                      hover_name="Versuch",
+                      hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
+                                  'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
+    fig3 = px.scatter(df_final,
+                      x="Extraktionen [n]",
+                      y='Mw (mean)',
+                      error_y='Mw (std)',
+                      color="Inhalt",
+                      symbol='Ausgangsmaterial',
+                      hover_name="Versuch",
+                      hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
+                                  'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
+    app = Dash(__name__)
+    app.layout = html.Div(children=[
+        html.Label('Lösemittel:'),
+        dcc.Dropdown(df_final['Lösemittel'].unique(), "Aceton", id='solvent-filter', multi=True),
+        html.Br(),
+
+        html.Label('Fällungsmittel:'),
+        dcc.Dropdown(df_final['Fällungsmittel'].unique(), "Isopropanol", id='reciprocent-filter', multi=True),
+        html.Br(),
+
+        html.Label('Ausgangsmaterial:'),
+        dcc.Dropdown(df_final['Ausgangsmaterial'].unique(), [
+            "100 L-6",
+            "100 L-7",
+            "I.22.0160",
+            "I.22.0161",
+            "I.22.0162"
+        ], id='source-filter', multi=True),
+        html.Br(),
+
+        html.Label('Extraktionstemperatur [°C]:'),
+        dcc.RangeSlider(
+            id='temp-slider',
+            min=df_final['Extraktionstemperatur [°C]'].min(), max=df_final['Extraktionstemperatur [°C]'].max(), step=1,
+            value=[df_final['Extraktionstemperatur [°C]'].min(), df_final['Extraktionstemperatur [°C]'].max()]
+        ),
+        html.Br(),
+
+        html.Label('Extraktionskonzentration [g/ml]:'),
+        dcc.RangeSlider(
+            id='conc-slider',
+            min=df_final['Extraktionskonzentration [g/ml]'].min(), max=df_final['Extraktionskonzentration [g/ml]'].max(),
+            step=0.01,
+            value=[df_final['Extraktionskonzentration [g/ml]'].min(), df_final['Extraktionskonzentration [g/ml]'].max()]
+        ),
+        html.Br(),
+
+        html.Label('Extraktionsdauer [min]:'),
+        dcc.RangeSlider(
+            id='dur-slider',
+            min=df_final['Extraktionsdauer [min]'].min(),
+            max=df_final['Extraktionsdauer [min]'].max(), step=5,
+            value=[df_final['Extraktionsdauer [min]'].min(), df_final['Extraktionsdauer [min]'].max()]
+        ),
+        html.Br(),
+
+        dcc.Graph(
+            figure=fig1,
+            id="HHx-plot"
+        ),
+        dcc.Graph(
+            figure=fig2,
+            id="Pur-plot"
+        ),
+        dcc.Graph(
+            figure=fig3,
+            id="Mw-plot"
+        )
+    ])
+
+
+    def get_base_trails(ser):
+        acc = []
+        for trail in ser.unique():
+            if trail is np.NaN:
+                return acc
+            acc += trail.strip("[]").split(',')
+        return acc
+
+    def get_lines(df, trail):
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None, "display.width", 800):
+            acc = df[df['Versuch'] == trail['points'][0]['hovertext']]
+            tmp = acc
+            while not tmp.empty:
+                tmp = df[df['Versuch'].isin(get_base_trails(tmp['Ausgansversuch']))]
+                acc = pd.concat([acc, tmp])
+            tmp = df[df['Ausgansversuch'].str.contains(trail['points'][0]['hovertext'], na=False)]
+            while not tmp.empty:
+                acc = pd.concat([acc, tmp])
+                pattern = "|".join(get_base_trails(tmp['Versuch']))
+                dbg = df['Ausgansversuch'].str.contains(pattern, regex=True, na=False)
+                tmp = df[dbg]
+            return acc
+
+
+    @app.callback(
+        Output('HHx-plot', 'figure'),
+        Output('Pur-plot', 'figure'),
+        Output('Mw-plot', 'figure'),
+        Input('solvent-filter', 'value'),
+        Input('reciprocent-filter', 'value'),
+        Input('source-filter', 'value'),
+        Input('temp-slider', 'value'),
+        Input('conc-slider', 'value'),
+        Input('dur-slider', 'value'),
+        Input('HHx-plot', 'hoverData'),
+        Input('HHx-plot', 'clickData'),
+    )
+    def callback(solvents, reciprocents, source,
+                 temp_range, concentration_range, duration_range,
+                 hhx_hover, hhx_click):
+        if isinstance(solvents, str):
+            solvents = [solvents]
+        df_tmp = df_final[df_final['Lösemittel'].isin(solvents)]
+        if isinstance(reciprocents, str):
+            reciprocents = [reciprocents]
+        df_tmp = df_tmp[df_tmp['Fällungsmittel'].isin(reciprocents)]
+        if isinstance(source, str):
+            source = [source]
+        df_tmp = df_tmp[df_tmp['Ausgangsmaterial'].isin(source)]
+        df_tmp = df_tmp[df_tmp['Extraktionstemperatur [°C]'].between(*temp_range)]
+        df_tmp = df_tmp[df_tmp['Extraktionskonzentration [g/ml]'].between(*concentration_range)]
+        df_tmp = df_tmp[df_tmp['Extraktionsdauer [min]'].between(*duration_range)]
+        df_tmp = pd.concat([df_source_mat, df_tmp], ignore_index=True)
+
+        df_hl = None
+        if hhx_hover is not None:
+            df_hl = get_lines(df_tmp, hhx_hover)
+            if hhx_hover == hhx_click:
+                df_tmp = df_hl
+                df_hl = None
+
+        fig1 = px.scatter(df_tmp, x="Extraktionen [n]", y='x HHx [%] (mean)', error_y='x HHx [%] (std)', color="Inhalt",
+                          symbol='Ausgangsmaterial', hover_name="Versuch",
+                          hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
+                                      'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
+        fig2 = px.scatter(df_tmp, x="Extraktionen [n]", y='Reinheit [%] (mean)', error_y='Reinheit [%] (std)',
+                          color="Inhalt", symbol='Ausgangsmaterial', hover_name="Versuch",
+                          hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
+                                      'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
+        fig3 = px.scatter(df_tmp, x="Extraktionen [n]", y='Mw (mean)', error_y='Mw (std)', color="Inhalt",
+                          symbol='Ausgangsmaterial', hover_name="Versuch",
+                          hover_data=['Lösemittel', 'Extraktionstemperatur [°C]',
+                                      'Extraktionskonzentration [g/ml]', 'Fällungsmittel'])
+
+        if df_hl is not None:
+            fig1.add_scatter(x=df_hl['Extraktionen [n]'], y=df_hl['x HHx [%] (mean)'], mode='markers', showlegend=False,
+                             hoverinfo='skip',  marker=dict(color='rgba(0,0,0,0)', size=15,  line=dict(color='Black', width=1)))
+            fig2.add_scatter(x=df_hl['Extraktionen [n]'], y=df_hl['Reinheit [%] (mean)'], mode='markers', showlegend=False,
+                             hoverinfo='skip',  marker=dict(color='rgba(0,0,0,0)', size=15,  line=dict(color='Black', width=1)))
+        return fig1, fig2, fig3
+
+    app.run_server(debug=True)
 
 
 df_gc = df_gc.drop(columns=['Ausreißer Probe'])
